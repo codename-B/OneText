@@ -1,0 +1,49 @@
+[package]
+name = "onetext"
+version = "0.1.2"
+edition = "2021"
+
+[dependencies]
+# GUI Engine & UI Framework
+gpui = "0.2.2"
+gpui-component = "0.5"
+gpui-component-assets = "0.5"
+
+# Data & Logic
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# System Integration
+rfd = "0.12"
+directories = "5.0"
+
+# Printing
+krilla = "0.6"
+chrono = "0.4.42"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.48", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Threading",
+    "Win32_System_ProcessStatus",
+] }
+
+[build-dependencies]
+winres = "0.1"
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
