@@ -4,7 +4,7 @@
 #define MyAppName "OneText"
 #define MyAppVersion "0.1.2"
 #define MyAppPublisher "OneText"
-#define MyAppURL "https://github.com/user/OneText"
+#define MyAppURL "https://github.com/codename-B/OneText"
 #define MyAppExeName "onetext.exe"
 
 [Setup]

@@ -19,7 +19,7 @@
 
 ## 📦 Installation
 
-Download the latest installer from the **[Releases](https://github.com/user/OneText/releases)** page.
+Download the latest installer from the **[Releases](https://github.com/codename-B/OneText/releases)** page.
 
 The installer (`OneText-Setup-x.x.x.exe`) installs the app to Program Files and creates a Start Menu shortcut.
 
@@ -29,7 +29,7 @@ To build OneText yourself, you'll need [Rust](https://www.rust-lang.org/tools/in
 
 ```powershell
 # Clone the repository
-git clone https://github.com/user/OneText.git
+git clone https://github.com/codename-B/OneText.git
 cd OneText
 
 # Build and run in release mode
