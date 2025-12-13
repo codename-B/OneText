@@ -103,3 +103,101 @@ impl History {
         self.current_index != self.saved_index
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_is_not_dirty() {
+        let history = History::new();
+        assert!(!history.is_dirty());
+    }
+
+    #[test]
+    fn test_push_makes_dirty() {
+        let mut history = History::new();
+        history.push("hello".into(), 5, 5);
+        assert!(history.is_dirty());
+    }
+
+    #[test]
+    fn test_push_same_text_not_dirty() {
+        let mut history = History::new();
+        // Push same empty text with different cursor - should not create new entry
+        history.push("".into(), 0, 0);
+        assert!(!history.is_dirty());
+    }
+
+    #[test]
+    fn test_undo_returns_previous() {
+        let mut history = History::new();
+        history.push("first".into(), 5, 5);
+        history.push("second".into(), 6, 6);
+        
+        let snapshot = history.undo().unwrap();
+        assert_eq!(snapshot.text, "first");
+    }
+
+    #[test]
+    fn test_undo_at_start_returns_none() {
+        let mut history = History::new();
+        assert!(history.undo().is_none());
+    }
+
+    #[test]
+    fn test_redo_returns_next() {
+        let mut history = History::new();
+        history.push("first".into(), 5, 5);
+        history.undo();
+        
+        let snapshot = history.redo().unwrap();
+        assert_eq!(snapshot.text, "first");
+    }
+
+    #[test]
+    fn test_redo_invalidated_by_push() {
+        let mut history = History::new();
+        history.push("first".into(), 5, 5);
+        history.undo();
+        history.push("different".into(), 9, 9);
+        
+        // Redo should be gone
+        assert!(history.redo().is_none());
+    }
+
+    #[test]
+    fn test_mark_saved_clears_dirty() {
+        let mut history = History::new();
+        history.push("changed".into(), 7, 7);
+        assert!(history.is_dirty());
+        
+        history.mark_saved();
+        assert!(!history.is_dirty());
+    }
+
+    #[test]
+    fn test_dirty_after_undo_past_saved() {
+        let mut history = History::new();
+        history.push("first".into(), 5, 5);
+        history.mark_saved();
+        history.push("second".into(), 6, 6);
+        history.undo(); // back to "first"
+        history.undo(); // back to ""
+        
+        // We're now before the saved point
+        assert!(history.is_dirty());
+    }
+
+    #[test]
+    fn test_clear_resets_history() {
+        let mut history = History::new();
+        history.push("text".into(), 4, 4);
+        history.mark_saved();
+        
+        history.clear("new content".into());
+        
+        assert!(!history.is_dirty());
+        assert!(history.undo().is_none());
+    }
+}

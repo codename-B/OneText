@@ -108,7 +108,8 @@ impl TextEditor {
         let content = match content {
             Some(c) => c,
             None => std::fs::read_to_string(&path)?,
-        }.replace('\t', "  ");
+        };
+        let content = normalize_tabs(&content);
 
         self.ignore_input_events = true;
         self.input_state.update(cx, |state, cx| {
@@ -484,5 +485,22 @@ impl TextEditor {
             out.push(ch);
         }
         out.chars().rev().collect()
+    }
+}
+
+/// Normalize tabs to two spaces.
+fn normalize_tabs(content: &str) -> String {
+    content.replace('\t', "  ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_tabs;
+
+    #[test]
+    fn test_normalize_tabs() {
+        assert_eq!(normalize_tabs("hello\tworld"), "hello  world");
+        assert_eq!(normalize_tabs("\t\t"), "    ");
+        assert_eq!(normalize_tabs("no tabs"), "no tabs");
     }
 }

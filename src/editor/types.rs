@@ -78,3 +78,33 @@ impl fmt::Display for Encoding {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_lf() {
+        assert_eq!(LineEnding::detect("hello\nworld\n"), LineEnding::Lf);
+    }
+
+    #[test]
+    fn test_detect_crlf() {
+        assert_eq!(LineEnding::detect("hello\r\nworld\r\n"), LineEnding::Crlf);
+    }
+
+    #[test]
+    fn test_detect_mixed() {
+        assert_eq!(LineEnding::detect("hello\nworld\r\n"), LineEnding::Mixed);
+    }
+
+    #[test]
+    fn test_detect_empty() {
+        assert_eq!(LineEnding::detect(""), LineEnding::Lf);
+    }
+
+    #[test]
+    fn test_detect_no_newlines() {
+        assert_eq!(LineEnding::detect("hello world"), LineEnding::Lf);
+    }
+}
