@@ -6,7 +6,7 @@
 
 **OneText** is a minimal text editor built in Rust. It focuses on single-file editing without the distraction of tabs, using `gpui` for high performance.
 
-<img width="802" height="602" alt="OneText Screenshot" src="https://github.com/user-attachments/assets/b755fe1d-9f61-4266-9cc8-e605f545c819" />
+<img width="802" height="602" alt="OneText Screenshot" src="preview.png" />
 
 ## ✨ Features
 
