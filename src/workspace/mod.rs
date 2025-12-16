@@ -29,6 +29,8 @@ pub struct Workspace {
     pub current_file: Option<PathBuf>,
     /// Application settings.
     pub settings: AppSettings,
+    /// Cached window title to avoid redundant updates.
+    cached_title: String,
 }
 
 impl Workspace {
@@ -40,6 +42,7 @@ impl Workspace {
             editor_entity: Some(editor),
             current_file: None,
             settings,
+            cached_title: String::new(),
         }
     }
 
@@ -72,11 +75,14 @@ impl Workspace {
         }
     }
 
-    /// Sync window title with current state.
-    pub(crate) fn update_title(&self, window: &mut Window, cx: &Context<Self>) {
+    /// Sync window title with current state (only if changed).
+    pub(crate) fn update_title(&mut self, window: &mut Window, cx: &Context<Self>) {
         let title = self.get_title_text(cx);
-        debug!(title = title, "Updating window title");
-        window.set_window_title(&title);
+        if title != self.cached_title {
+            debug!(title = title, "Updating window title");
+            window.set_window_title(&title);
+            self.cached_title = title;
+        }
     }
 
     pub fn close_file(&mut self, window: &mut Window, cx: &mut Context<Self>) {

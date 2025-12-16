@@ -2,7 +2,7 @@
 ; Builds a Windows installer with file associations
 
 #define MyAppName "OneText"
-#define MyAppVersion "0.1.2"
+#define MyAppVersion "0.1.3"
 #define MyAppPublisher "OneText"
 #define MyAppURL "https://github.com/codename-B/OneText"
 #define MyAppExeName "onetext.exe"

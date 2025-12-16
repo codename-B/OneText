@@ -5,10 +5,10 @@ use gpui_component::Theme;
 use gpui_component::ThemeRegistry;
 use gpui_component::menu::{DropdownMenu, PopupMenuItem};
 use gpui_component::button::{Button, ButtonVariants};
-use gpui_component::input::{Copy, Cut, Paste, SelectAll};
+use gpui_component::input::{Copy, Cut, SelectAll};
 
 use crate::{ExitAppAction, ExportPdfAction, FindAction, NewFileAction, OpenFileDialogAction, SaveFileAction, SaveFileAsAction};
-use crate::editor::{UndoAction, RedoAction};
+use crate::editor::{UndoAction, RedoAction, NormalizePasteAction};
 use super::Workspace;
 
 /// Shorthand for accessing workspace from menu handlers.
@@ -95,9 +95,9 @@ impl Workspace {
                     }).action(Box::new(Copy)))
                     .item(PopupMenuItem::new("Paste").on_click(|_, window, app| {
                         with_workspace!(window, app, |this, window, cx| {
-                            this.with_editor(cx, |ed, cx| ed.paste(window, cx));
+                            this.with_editor(cx, |ed, cx| ed.paste(&NormalizePasteAction, window, cx));
                         });
-                    }).action(Box::new(Paste)))
+                    }).action(Box::new(NormalizePasteAction)))
                     .item(PopupMenuItem::separator())
                     .item(PopupMenuItem::new("Find").on_click(|_, window, app| {
                         with_workspace!(window, app, |this, window, cx| {

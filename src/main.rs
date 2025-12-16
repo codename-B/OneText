@@ -6,14 +6,14 @@ mod editor;
 
 use gpui::*;
 use gpui_component::{Root, Theme, ThemeRegistry};
-use gpui_component::input::{Copy, Cut, Paste, SelectAll};
+use gpui_component::input::{Copy, Cut, SelectAll};
 use gpui_component_assets::Assets;
 use clap::Parser;
 use std::path::PathBuf;
 use tracing::warn;
 use workspace::Workspace;
 use settings::AppSettings;
-use crate::editor::{UndoAction, RedoAction}; // Import editor actions
+use crate::editor::{UndoAction, RedoAction, NormalizePasteAction}; // Import editor actions
 
 /// Returns the compilation directory or the directory containing the executable.
 pub fn get_app_root() -> PathBuf {
@@ -38,7 +38,7 @@ actions!(global, [
 
 #[derive(Parser, Debug)]
 #[command(name = "OneText")]
-#[command(version = "0.1.2")]
+#[command(version = "0.1.3")]
 #[command(about = "A text editor", long_about = None)]
 struct Cli {
     /// Optional file to open on startup
@@ -96,7 +96,7 @@ fn main() {
             KeyBinding::new("alt-f4", ExitAppAction, None),
             // editor bindings
             KeyBinding::new("ctrl-c", Copy, None),
-            KeyBinding::new("ctrl-v", Paste, None),
+            KeyBinding::new("ctrl-v", NormalizePasteAction, None),
             KeyBinding::new("ctrl-x", Cut, None),
             KeyBinding::new("ctrl-a", SelectAll, None),
             KeyBinding::new("ctrl-z", UndoAction, None),

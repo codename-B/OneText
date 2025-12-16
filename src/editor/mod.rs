@@ -27,7 +27,7 @@ mod history;
 use history::History;
 
 // Actions
-actions!(editor, [UndoAction, RedoAction]);
+actions!(editor, [UndoAction, RedoAction, NormalizePasteAction]);
 
 /// Main text editor component with multi-line input, undo/redo, and status bar.
 pub struct TextEditor {
@@ -187,7 +187,14 @@ impl TextEditor {
         self.dispatch_to_input(&CutAction, window, cx);
     }
 
-    pub fn paste(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn paste(&mut self, _: &NormalizePasteAction, window: &mut Window, cx: &mut Context<Self>) {
+        // Normalize tabs in clipboard content before pasting
+        if let Some(item) = cx.read_from_clipboard() {
+            if let Some(text) = item.text() {
+                let normalized = normalize_tabs(&text);
+                cx.write_to_clipboard(ClipboardItem::new_string(normalized));
+            }
+        }
         self.dispatch_to_input(&PasteAction, window, cx);
     }
 
@@ -422,6 +429,7 @@ impl Render for TextEditor {
             .on_action(cx.listener(Self::export_pdf))
             .on_action(cx.listener(Self::undo))
             .on_action(cx.listener(Self::redo))
+            .on_action(cx.listener(Self::paste))
             .child(
                 // Main editor area
                 div()
