@@ -167,6 +167,7 @@ pub fn export_to_pdf(content: &str, path: &Path, config: &PdfConfig) -> anyhow::
 }
 
 /// Wraps text into lines of approximately the given width.
+/// Preserves leading whitespace (indentation) from the original lines.
 fn wrap_text(content: &str, max_chars: usize) -> Vec<String> {
     let mut lines = Vec::new();
     
@@ -176,23 +177,36 @@ fn wrap_text(content: &str, max_chars: usize) -> Vec<String> {
             continue;
         }
         
-        let words: Vec<&str> = paragraph.split_whitespace().collect();
+        // Preserve leading whitespace (indentation)
+        let trimmed = paragraph.trim_start();
+        let indent = &paragraph[..paragraph.len() - trimmed.len()];
+        
+        let words: Vec<&str> = trimmed.split_whitespace().collect();
         if words.is_empty() {
+            // Line with only whitespace - preserve as empty
             lines.push(String::new());
             continue;
         }
         
         let mut current_line = String::new();
+        let mut is_first_line = true;
         
         for word in words {
             if current_line.is_empty() {
-                current_line = word.to_string();
+                // Start new line with indent (only first line of paragraph gets original indent)
+                if is_first_line {
+                    current_line = format!("{}{}", indent, word);
+                } else {
+                    // Continuation lines get same indent for visual consistency
+                    current_line = format!("{}{}", indent, word);
+                }
             } else if current_line.len() + 1 + word.len() <= max_chars {
                 current_line.push(' ');
                 current_line.push_str(word);
             } else {
                 lines.push(current_line);
-                current_line = word.to_string();
+                is_first_line = false;
+                current_line = format!("{}{}", indent, word);
             }
         }
         
@@ -202,4 +216,40 @@ fn wrap_text(content: &str, max_chars: usize) -> Vec<String> {
     }
     
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wrap_text;
+
+    #[test]
+    fn test_wrap_preserves_indentation() {
+        let input = "    indented line";
+        let result = wrap_text(input, 80);
+        assert_eq!(result, vec!["    indented line"]);
+    }
+
+    #[test]
+    fn test_wrap_preserves_different_indent_levels() {
+        let input = "no indent\n  two spaces\n    four spaces";
+        let result = wrap_text(input, 80);
+        assert_eq!(result, vec!["no indent", "  two spaces", "    four spaces"]);
+    }
+
+    #[test]
+    fn test_wrap_long_indented_line_preserves_indent_on_continuation() {
+        let input = "    word1 word2 word3 word4";
+        let result = wrap_text(input, 20);
+        // Each continuation line should also be indented
+        assert!(result.len() >= 2);
+        assert!(result[0].starts_with("    "));
+        assert!(result[1].starts_with("    "));
+    }
+
+    #[test]
+    fn test_wrap_empty_lines() {
+        let input = "line1\n\nline2";
+        let result = wrap_text(input, 80);
+        assert_eq!(result, vec!["line1", "", "line2"]);
+    }
 }
