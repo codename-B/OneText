@@ -120,7 +120,7 @@ fn main() {
             #[cfg(target_os = "windows")]
             {
                 std::thread::spawn(move || {
-                    use windows::Win32::Foundation::{HWND, BOOL, LPARAM, RECT};
+                    use windows::Win32::Foundation::{HWND, LPARAM, RECT};
                     use windows::Win32::UI::WindowsAndMessaging::{
                         GetWindowRect, EnumWindows, GetWindowThreadProcessId, IsWindowVisible,
                     };
@@ -138,24 +138,24 @@ fn main() {
                                 hwnd: HWND,
                             }
                             
-                            unsafe extern "system" fn enum_proc(window: HWND, param: LPARAM) -> BOOL {
+                            unsafe extern "system" fn enum_proc(window: HWND, param: LPARAM) -> windows::core::BOOL {
                                 let data = &mut *(param.0 as *mut FindData);
                                 let mut pid = 0u32;
                                 GetWindowThreadProcessId(window, Some(&mut pid));
                                 if pid == data.pid && IsWindowVisible(window).as_bool() {
                                     data.hwnd = window;
-                                    return BOOL(0); // Stop enumeration
+                                    return windows::core::BOOL(0); // Stop enumeration
                                 }
-                                BOOL(1) // Continue
+                                windows::core::BOOL(1) // Continue
                             }
                             
                             let pid = GetCurrentProcessId();
-                            let mut data = FindData { pid, hwnd: HWND(0) };
+                            let mut data = FindData { pid, hwnd: HWND(std::ptr::null_mut()) };
                             let _ = EnumWindows(Some(enum_proc), LPARAM(&mut data as *mut _ as isize));
                             
-                            if data.hwnd.0 != 0 {
+                            if !data.hwnd.0.is_null() {
                                 let mut rect = RECT::default();
-                                if GetWindowRect(data.hwnd, &mut rect).as_bool() {
+                                if GetWindowRect(data.hwnd, &mut rect).is_ok() {
                                     let w = (rect.right - rect.left) as f32;
                                     let h = (rect.bottom - rect.top) as f32;
                                     Some((rect.left as f32, rect.top as f32, w, h))
