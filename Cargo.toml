@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 # GUI Engine & UI Framework
-gpui = "0.2.2"
-gpui-component = "0.5.1"
-gpui-component-assets = "0.5.1"
+gpui = { package = "gpui-ce", version = "0.3" }
+gpui-component = { path = "vendor/gpui-component" }
+gpui-component-assets = { path = "vendor/gpui-component-assets" }
 
 # Data & Logic
 serde = { version = "1.0.228", features = ["derive"] }
