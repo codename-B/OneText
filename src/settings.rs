@@ -20,6 +20,32 @@ pub struct AppSettings {
     /// Whether to warn about unsaved changes.
     #[serde(default = "default_true")]
     pub enable_unsaved_changes_protection: bool,
+
+    /// Recently opened files, most recent first.
+    #[serde(default)]
+    pub recent_files: Vec<PathBuf>,
+
+    /// Whether to reopen the last file on startup.
+    #[serde(default)]
+    pub restore_last_file: bool,
+
+    /// Last opened file (for restore on startup).
+    #[serde(default)]
+    pub last_file: Option<PathBuf>,
+}
+
+/// Maximum number of entries kept in the recent files list.
+pub const MAX_RECENT_FILES: usize = 10;
+
+impl AppSettings {
+    /// Record a file as most-recently-used and remember it for session restore.
+    pub fn remember_file(&mut self, path: &PathBuf) {
+        self.recent_files.retain(|p| p != path);
+        self.recent_files.insert(0, path.clone());
+        self.recent_files.truncate(MAX_RECENT_FILES);
+        self.last_file = Some(path.clone());
+        self.save();
+    }
 }
 
 fn default_true() -> bool { true }
@@ -35,6 +61,9 @@ impl Default for AppSettings {
             font_size: 14.0,
             theme: default_theme(),
             enable_unsaved_changes_protection: true,
+            recent_files: Vec::new(),
+            restore_last_file: false,
+            last_file: None,
         }
     }
 }

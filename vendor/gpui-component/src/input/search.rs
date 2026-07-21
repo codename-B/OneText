@@ -216,6 +216,21 @@ impl InputState {
         self.search_panel = Some(search_panel);
         cx.notify();
     }
+
+    pub(super) fn on_action_replace(
+        &mut self,
+        _: &super::Replace,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.on_action_search(&Search, window, cx);
+        if let Some(panel) = self.search_panel.clone() {
+            panel.update(cx, |this, cx| {
+                this.replace_mode = true;
+                cx.notify();
+            });
+        }
+    }
 }
 
 impl SearchPanel {

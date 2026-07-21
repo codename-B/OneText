@@ -6,3 +6,10 @@ This directory contains local copies of crates that are patched for the
 `gpui 0.2.2`; OneText needs them to resolve `gpui` to the published
 `gpui-ce` package so all GPUI types come from the same crate instance.
 
+Local behavior patches:
+
+- `gpui-component/src/input/state.rs` — `InputState::on_scroll_wheel` ignores
+  scroll events with Ctrl held so they bubble up to the app for font-size zoom.
+- `gpui-component/src/input/state.rs`, `search.rs`, `input.rs` — new `Replace`
+  action (Ctrl+H / Cmd+Alt+F) that opens the search panel with replace mode on.
+

@@ -7,7 +7,7 @@ use gpui_component::menu::{DropdownMenu, PopupMenuItem};
 use gpui_component::button::{Button, ButtonVariants};
 use gpui_component::input::{Copy, Cut, SelectAll};
 
-use crate::{ExitAppAction, ExportPdfAction, FindAction, NewFileAction, OpenFileDialogAction, SaveFileAction, SaveFileAsAction};
+use crate::{DecreaseFontSizeAction, ExitAppAction, ExportPdfAction, FindAction, GoToLineAction, IncreaseFontSizeAction, InsertDateTimeAction, NewFileAction, OpenFileDialogAction, ReplaceAction, ResetFontSizeAction, SaveFileAction, SaveFileAsAction};
 use crate::editor::{UndoAction, RedoAction, NormalizePasteAction};
 use super::Workspace;
 
@@ -24,11 +24,14 @@ macro_rules! with_workspace {
 
 impl Workspace {
     pub(super) fn build_file_menu(&self) -> impl IntoElement {
+        let recent_files = self.settings.recent_files.clone();
+        let restore_last_file = self.settings.restore_last_file;
         Button::new("menu:file")
             .label("File")
             .text()
             .dropdown_caret(true)
-            .dropdown_menu(|menu, _window, _cx_menu| {
+            .dropdown_menu(move |menu, window, cx_menu| {
+                let recent_files = recent_files.clone();
                 menu
                     .item(PopupMenuItem::new("New").on_click(|_, window, app| {
                         with_workspace!(window, app, |this, window, cx| {
@@ -40,6 +43,37 @@ impl Workspace {
                             this.open_dialog(window, cx);
                         });
                     }).action(Box::new(OpenFileDialogAction)))
+                    .submenu("Open Recent", window, cx_menu, {
+                        let recent_files = recent_files.clone();
+                        move |submenu, _window, _cx_submenu| {
+                            let submenu = recent_files.iter().fold(submenu, |submenu, path| {
+                                let display = path.to_string_lossy().to_string();
+                                let path = path.clone();
+                                submenu.item(PopupMenuItem::new(display).on_click(move |_, window, app| {
+                                    let path = path.clone();
+                                    with_workspace!(window, app, |this, window, cx| {
+                                        this.open_file_checked(path, window, cx);
+                                    });
+                                }))
+                            });
+                            let submenu = if recent_files.is_empty() {
+                                submenu.item(PopupMenuItem::new("(empty)"))
+                            } else {
+                                submenu.item(PopupMenuItem::separator())
+                            };
+                            submenu.item(PopupMenuItem::new("Clear Recent Files").on_click(|_, window, app| {
+                                with_workspace!(window, app, |this, _window, cx| {
+                                    this.clear_recent_files(cx);
+                                });
+                            }))
+                        }
+                    })
+                    .item(PopupMenuItem::new("Reopen Last File on Startup").checked(restore_last_file).on_click(|_, window, app| {
+                        with_workspace!(window, app, |this, _window, cx| {
+                            this.toggle_restore_last_file(cx);
+                        });
+                    }))
+                    .item(PopupMenuItem::separator())
                     .item(PopupMenuItem::new("Save").on_click(|_, window, app| {
                         with_workspace!(window, app, |this, window, cx| {
                             this.save_file(window, cx);
@@ -104,6 +138,22 @@ impl Workspace {
                             this.with_editor(cx, |ed, cx| ed.open_search(window, cx));
                         });
                     }).action(Box::new(FindAction)))
+                    .item(PopupMenuItem::new("Replace").on_click(|_, window, app| {
+                        with_workspace!(window, app, |this, window, cx| {
+                            this.with_editor(cx, |ed, cx| ed.open_replace(window, cx));
+                        });
+                    }).action(Box::new(ReplaceAction)))
+                    .item(PopupMenuItem::new("Go to Line...").on_click(|_, window, app| {
+                        with_workspace!(window, app, |this, window, cx| {
+                            this.with_editor(cx, |ed, cx| ed.open_goto_line(window, cx));
+                        });
+                    }).action(Box::new(GoToLineAction)))
+                    .item(PopupMenuItem::separator())
+                    .item(PopupMenuItem::new("Insert Date/Time").on_click(|_, window, app| {
+                        with_workspace!(window, app, |this, window, cx| {
+                            this.with_editor(cx, |ed, cx| ed.insert_datetime(window, cx));
+                        });
+                    }).action(Box::new(InsertDateTimeAction)))
                     .item(PopupMenuItem::new("Select All").on_click(|_, window, app| {
                         with_workspace!(window, app, |this, window, cx| {
                             this.with_editor(cx, |ed, cx| ed.select_all(window, cx));
@@ -130,6 +180,22 @@ impl Workspace {
                                 this.with_editor(cx, |ed, cx| ed.toggle_status_bar(window, cx));
                             });
                         }))
+                        .item(PopupMenuItem::separator())
+                        .item(PopupMenuItem::new("Increase Font Size").on_click(|_, window, app| {
+                            with_workspace!(window, app, |this, _window, cx| {
+                                this.increase_font_size(cx);
+                            });
+                        }).action(Box::new(IncreaseFontSizeAction)))
+                        .item(PopupMenuItem::new("Decrease Font Size").on_click(|_, window, app| {
+                            with_workspace!(window, app, |this, _window, cx| {
+                                this.decrease_font_size(cx);
+                            });
+                        }).action(Box::new(DecreaseFontSizeAction)))
+                        .item(PopupMenuItem::new("Reset Font Size").on_click(|_, window, app| {
+                            with_workspace!(window, app, |this, _window, cx| {
+                                this.reset_font_size(cx);
+                            });
+                        }).action(Box::new(ResetFontSizeAction)))
                         .item(PopupMenuItem::separator())
                         .submenu("Theme", window, cx_menu, |submenu, _window, cx_submenu| {
                             let mut theme_names: Vec<String> = ThemeRegistry::global(cx_submenu)

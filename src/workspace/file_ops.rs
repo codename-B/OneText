@@ -58,6 +58,8 @@ impl Workspace {
                     with_workspace_async(&mut cx, |this, window, cx_ws| {
                         debug!(has_editor = this.editor_entity.is_some(), "Updating workspace with file");
                         this.current_file = Some(path.clone());
+                        this.settings.remember_file(&path);
+                        this.refresh_disk_mtime();
                         
                         // Make sure to reset editor state completely
                         if let Some(editor) = &this.editor_entity {
@@ -167,7 +169,9 @@ impl Workspace {
         if success {
             with_workspace_async(cx, |this, window, cx_ws| {
                 this.current_file = Some(path.clone());
-                
+                this.settings.remember_file(&path);
+                this.refresh_disk_mtime();
+
                 // Mark editor clean
                 if let Some(editor) = &this.editor_entity {
                     editor.update(cx_ws, |ed, _| ed.mark_clean());

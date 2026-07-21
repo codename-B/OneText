@@ -33,7 +33,13 @@ actions!(global, [
     SaveFileAction,
     SaveFileAsAction,
     FindAction,
-    ExitAppAction
+    ReplaceAction,
+    GoToLineAction,
+    InsertDateTimeAction,
+    ExitAppAction,
+    IncreaseFontSizeAction,
+    DecreaseFontSizeAction,
+    ResetFontSizeAction
 ]);
 
 #[derive(Parser, Debug)]
@@ -89,11 +95,18 @@ fn main() {
         cx.bind_keys([
             KeyBinding::new("ctrl-p", ExportPdfAction, None),
             KeyBinding::new("ctrl-f", FindAction, None),
+            KeyBinding::new("ctrl-h", ReplaceAction, None),
+            KeyBinding::new("ctrl-g", GoToLineAction, None),
+            KeyBinding::new("f5", InsertDateTimeAction, None),
             KeyBinding::new("ctrl-n", NewFileAction, None),
             KeyBinding::new("ctrl-o", OpenFileDialogAction, None),
             KeyBinding::new("ctrl-s", SaveFileAction, None),
             KeyBinding::new("ctrl-shift-s", SaveFileAsAction, None),
             KeyBinding::new("alt-f4", ExitAppAction, None),
+            KeyBinding::new("ctrl-=", IncreaseFontSizeAction, None),
+            KeyBinding::new("ctrl-shift-=", IncreaseFontSizeAction, None), // Ctrl+Plus
+            KeyBinding::new("ctrl--", DecreaseFontSizeAction, None),
+            KeyBinding::new("ctrl-0", ResetFontSizeAction, None),
             // editor bindings
             KeyBinding::new("ctrl-c", Copy, None),
             KeyBinding::new("ctrl-v", NormalizePasteAction, None),
@@ -104,7 +117,14 @@ fn main() {
             KeyBinding::new("ctrl-y", RedoAction, None), // Alternate Redo
         ]);
 
-        let file_to_open = args.file.clone();
+        // Fall back to the last opened file when enabled and no file was passed on the CLI.
+        let file_to_open = args.file.clone().or_else(|| {
+            if settings.restore_last_file {
+                settings.last_file.clone().filter(|p| p.is_file())
+            } else {
+                None
+            }
+        });
 
         let window = cx.open_window(options, move |window, cx| {
             // Create the workspace view

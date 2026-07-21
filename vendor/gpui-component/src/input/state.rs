@@ -85,6 +85,7 @@ actions!(
         Escape,
         ToggleCodeActions,
         Search,
+        Replace,
         GoToDefinition,
     ]
 );
@@ -216,6 +217,10 @@ pub(crate) fn init(cx: &mut App) {
         KeyBinding::new("cmd-f", Search, Some(CONTEXT)),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-f", Search, Some(CONTEXT)),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-f", Replace, Some(CONTEXT)),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-h", Replace, Some(CONTEXT)),
     ]);
 
     search::init(cx);
@@ -1298,6 +1303,10 @@ impl InputState {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // Ctrl+wheel is reserved for zoom; let it bubble to the app.
+        if event.modifiers.control {
+            return;
+        }
         let line_height = self
             .last_layout
             .as_ref()

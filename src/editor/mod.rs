@@ -1,12 +1,13 @@
 use gpui::*;
 use gpui_component::{
-    Theme, input::{
+    Sizable as _, Theme, input::{
         Copy as CopyAction,
         Cut as CutAction,
         Input,
         InputEvent,
         InputState,
         Paste as PasteAction,
+        Replace as ReplaceInputAction,
         Search as SearchAction,
         SelectAll as SelectAllAction,
         Position,
@@ -48,6 +49,11 @@ pub struct TextEditor {
     ignore_input_events: bool,
     /// Whether the status bar is visible.
     pub(crate) show_status_bar: bool,
+    /// Editor font size in pixels.
+    pub(crate) font_size: f32,
+    /// Input state for the go-to-line bar, when open.
+    goto_line_input: Option<Entity<InputState>>,
+    goto_line_subscription: Option<Subscription>,
     fps_tracker: FpsTracker,
     history: History,
     _subscriptions: Vec<Subscription>,
@@ -98,6 +104,9 @@ impl TextEditor {
             is_dirty: false,
             ignore_input_events: false,
             show_status_bar: true,
+            font_size: 14.0,
+            goto_line_input: None,
+            goto_line_subscription: None,
             fps_tracker: FpsTracker::new(),
             history: History::new(),
             _subscriptions,
@@ -204,6 +213,65 @@ impl TextEditor {
 
     pub fn open_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.dispatch_to_input(&SearchAction, window, cx);
+    }
+
+    pub fn open_replace(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.dispatch_to_input(&ReplaceInputAction, window, cx);
+    }
+
+    /// Insert current date/time at the cursor (Notepad-style F5).
+    pub fn insert_datetime(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let stamp = chrono::Local::now().format("%H:%M %d/%m/%Y").to_string();
+        self.input_state.update(cx, |state, cx| {
+            state.insert(stamp, window, cx);
+        });
+    }
+
+    /// Toggle line endings between CRLF and LF, converting the buffer.
+    pub fn toggle_line_ending(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let text = self.input_state.read(cx).value().to_string();
+        let cursor = self.input_state.read(cx).cursor_position();
+        // Normalize all endings first, then apply the toggled style.
+        let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+        let (new_ending, new_text) = match self.line_ending {
+            LineEnding::Crlf => (LineEnding::Lf, normalized),
+            _ => (LineEnding::Crlf, normalized.replace('\n', "\r\n")),
+        };
+        self.line_ending = new_ending;
+        self.input_state.update(cx, |state, cx| {
+            state.set_value(&new_text, window, cx);
+            state.set_cursor_position(cursor, window, cx);
+        });
+        cx.notify();
+    }
+
+    /// Open the go-to-line bar (Ctrl+G).
+    pub fn open_goto_line(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let input = cx.new(|cx| InputState::new(window, cx));
+        input.read(cx).focus_handle(cx).focus(window);
+        self.goto_line_subscription = Some(cx.subscribe_in(&input, window, {
+            move |this: &mut Self, input, ev: &InputEvent, window, cx| {
+                if let InputEvent::PressEnter { .. } = ev {
+                    let line = input.read(cx).value().trim().parse::<u32>().ok();
+                    if let Some(line) = line {
+                        let target = line.saturating_sub(1);
+                        this.input_state.update(cx, |state, cx| {
+                            state.set_cursor_position(Position { line: target, character: 0 }, window, cx);
+                        });
+                    }
+                    this.close_goto_line(window, cx);
+                }
+            }
+        }));
+        self.goto_line_input = Some(input);
+        cx.notify();
+    }
+
+    fn close_goto_line(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.goto_line_input = None;
+        self.goto_line_subscription = None;
+        self.focus_handle(cx).focus(window);
+        cx.notify();
     }
 
     /// Focus input and dispatch action.
@@ -430,6 +498,26 @@ impl Render for TextEditor {
             .on_action(cx.listener(Self::undo))
             .on_action(cx.listener(Self::redo))
             .on_action(cx.listener(Self::paste))
+            .children(self.goto_line_input.clone().map(|input| {
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .px_2()
+                    .py_1()
+                    .border_b_1()
+                    .border_color(colors.border)
+                    .bg(colors.muted)
+                    .text_color(colors.muted_foreground)
+                    .text_sm()
+                    .on_key_down(cx.listener(|this, ev: &KeyDownEvent, window, cx| {
+                        if ev.keystroke.key == "escape" {
+                            this.close_goto_line(window, cx);
+                        }
+                    }))
+                    .child("Go to line:")
+                    .child(div().w(px(120.0)).child(Input::new(&input).small()))
+            }))
             .child(
                 // Main editor area
                 div()
@@ -440,6 +528,7 @@ impl Render for TextEditor {
                     Input::new(&self.input_state)
                         // No borders
                         .bordered(false)
+                            .text_size(px(self.font_size))
                             .text_color(colors.accent_foreground)
                             .border_color(colors.border)
                             .h_full()
@@ -462,7 +551,18 @@ impl Render for TextEditor {
                         .child(Self::separator(colors.border))
                         .child(count_display)
                         .child(Self::separator(colors.border))
-                        .child(line_ending)
+                        .child(
+                            div()
+                                .id("line-ending-toggle")
+                                .cursor_pointer()
+                                .px_1()
+                                .rounded(px(3.0))
+                                .hover(|s| s.bg(colors.accent))
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.toggle_line_ending(window, cx);
+                                }))
+                                .child(line_ending),
+                        )
                         .child(Self::separator(colors.border))
                         .child(encoding)
                         .child(Self::separator(colors.border))
