@@ -7,9 +7,9 @@ use gpui_component::menu::{DropdownMenu, PopupMenuItem};
 use gpui_component::button::{Button, ButtonVariants};
 use gpui_component::input::{Copy, Cut, SelectAll};
 
-use crate::{DecreaseFontSizeAction, ExitAppAction, ExportPdfAction, FindAction, GoToLineAction, IncreaseFontSizeAction, InsertDateTimeAction, NewFileAction, OpenFileDialogAction, ReplaceAction, ResetFontSizeAction, SaveFileAction, SaveFileAsAction};
+use crate::{DecreaseFontSizeAction, ExitAppAction, ExportPdfAction, FindAction, GoToLineAction, IncreaseFontSizeAction, InsertDateTimeAction, NewFileAction, OpenFileDialogAction, ReplaceAction, ResetFontSizeAction, SaveFileAction, SaveFileAsAction, ToggleLineNumbersAction};
 use crate::editor::{UndoAction, RedoAction, NormalizePasteAction};
-use super::Workspace;
+use super::{Workspace, LINE_HEIGHTS};
 
 /// Shorthand for accessing workspace from menu handlers.
 macro_rules! with_workspace {
@@ -162,7 +162,9 @@ impl Workspace {
             })
     }
 
-    pub(super) fn build_view_menu(&self, soft_wrap_enabled: bool, show_status_bar: bool, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    pub(super) fn build_view_menu(&self, soft_wrap_enabled: bool, show_status_bar: bool, show_line_numbers: bool, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        let font_family = self.settings.font_family.clone();
+        let line_height = self.settings.line_height;
         Button::new("menu:view")
             .label("View")
             .text()
@@ -175,6 +177,11 @@ impl Workspace {
                                 this.with_editor(cx, |ed, cx| ed.toggle_soft_wrap(window, cx));
                             });
                         }))
+                        .item(PopupMenuItem::new("Line Numbers").checked(show_line_numbers).on_click(|_, window, app| {
+                            with_workspace!(window, app, |this, window, cx| {
+                                this.toggle_line_numbers(window, cx);
+                            });
+                        }).action(Box::new(ToggleLineNumbersAction)))
                         .item(PopupMenuItem::new("Status Bar").checked(show_status_bar).on_click(|_, window, app| {
                             with_workspace!(window, app, |this, window, cx| {
                                 this.with_editor(cx, |ed, cx| ed.toggle_status_bar(window, cx));
@@ -196,6 +203,46 @@ impl Workspace {
                                 this.reset_font_size(cx);
                             });
                         }).action(Box::new(ResetFontSizeAction)))
+                        .item(PopupMenuItem::separator())
+                        .submenu("Font", window, cx_menu, {
+                            let current = font_family.clone();
+                            move |submenu, _window, cx_submenu| {
+                                let mut names = cx_submenu.text_system().all_font_names();
+                                names.sort();
+                                names.dedup();
+                                let current = current.clone();
+                                names.into_iter().fold(
+                                    submenu.max_h(px(320.0)).scrollable(true),
+                                    move |submenu, name| {
+                                        let is_active = name == current;
+                                        submenu.item(
+                                            PopupMenuItem::new(name.clone())
+                                                .checked(is_active)
+                                                .on_click(move |_, window, app| {
+                                                    let name = name.clone();
+                                                    with_workspace!(window, app, |this, _window, cx| {
+                                                        this.set_font_family(name, cx);
+                                                    });
+                                                }),
+                                        )
+                                    },
+                                )
+                            }
+                        })
+                        .submenu("Line Height", window, cx_menu, move |submenu, _window, _cx_submenu| {
+                            LINE_HEIGHTS.iter().fold(submenu, |submenu, &lh| {
+                                let is_active = (lh - line_height).abs() < 0.01;
+                                submenu.item(
+                                    PopupMenuItem::new(format!("{:.1}", lh))
+                                        .checked(is_active)
+                                        .on_click(move |_, window, app| {
+                                            with_workspace!(window, app, |this, _window, cx| {
+                                                this.set_line_height(lh, cx);
+                                            });
+                                        }),
+                                )
+                            })
+                        })
                         .item(PopupMenuItem::separator())
                         .submenu("Theme", window, cx_menu, |submenu, _window, cx_submenu| {
                             let mut theme_names: Vec<String> = ThemeRegistry::global(cx_submenu)
@@ -240,16 +287,16 @@ impl Workspace {
         let theme = Theme::global_mut(cx);
         let palette = theme.colors;
         
-        let (soft_wrap_enabled, show_status_bar) = if let Some(editor) = &self.editor_entity {
+        let (soft_wrap_enabled, show_status_bar, show_line_numbers) = if let Some(editor) = &self.editor_entity {
             let ed = editor.read(cx);
-            (ed.soft_wrap, ed.show_status_bar)
+            (ed.soft_wrap, ed.show_status_bar, ed.show_line_numbers)
         } else {
-            (true, true)
+            (true, true, true)
         };
 
         let file_menu = self.build_file_menu();
         let edit_menu = self.build_edit_menu();
-        let view_menu = self.build_view_menu(soft_wrap_enabled, show_status_bar, window, cx);
+        let view_menu = self.build_view_menu(soft_wrap_enabled, show_status_bar, show_line_numbers, window, cx);
 
         div()
             .flex()

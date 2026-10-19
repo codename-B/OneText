@@ -7,7 +7,7 @@ mod editor;
 use gpui::*;
 use gpui_component::{Root, Theme, ThemeRegistry};
 use gpui_component::input::{Copy, Cut, SelectAll};
-use gpui_component_assets::Assets;
+use gpui_kit_assets::AllAssets;
 use clap::Parser;
 use std::path::PathBuf;
 use tracing::warn;
@@ -39,12 +39,13 @@ actions!(global, [
     ExitAppAction,
     IncreaseFontSizeAction,
     DecreaseFontSizeAction,
-    ResetFontSizeAction
+    ResetFontSizeAction,
+    ToggleLineNumbersAction
 ]);
 
 #[derive(Parser, Debug)]
 #[command(name = "OneText")]
-#[command(version = "0.1.4")]
+#[command(version = "0.2.0")]
 #[command(about = "A text editor", long_about = None)]
 struct Cli {
     /// Optional file to open on startup
@@ -69,7 +70,7 @@ fn main() {
         ..Default::default()
     };
 
-    Application::new().with_assets(Assets).run(move |cx: &mut App| {
+    gpui_platform::application().with_assets(AllAssets).run(move |cx: &mut App| {
         // Initialize gpui-component (required before using components)
         gpui_component::init(cx);
 
@@ -84,7 +85,7 @@ fn main() {
                     .get(&theme_name)
                     .cloned()
                 {
-                    Theme::global_mut(cx).apply_config(&theme);
+                    Theme::update(cx, |t| t.apply_config(&theme));
                 }
             }
         ) {

@@ -1,7 +1,7 @@
 # OneText
 
 ![License](https://img.shields.io/badge/license-GPLv2-blue.svg)
-![Version](https://img.shields.io/badge/version-0.1.4-green.svg)
+![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 
 **OneText** is a minimal text editor built in Rust. It focuses on single-file editing without the distraction of tabs, using `gpui` for high performance.
@@ -35,6 +35,8 @@ cd OneText
 # Build and run in release mode
 cargo run --release
 ```
+
+Requires **Rust 1.99 or newer** (the repository's `rust-toolchain.toml` selects it automatically with rustup).
 
 ### Building the Installer (Windows)
 

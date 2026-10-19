@@ -1,13 +1,16 @@
 [package]
 name = "onetext"
-version = "0.1.4"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
 # GUI Engine & UI Framework
-gpui = { package = "gpui-ce", version = "0.3" }
-gpui-component = { path = "vendor/gpui-component" }
-gpui-component-assets = { path = "vendor/gpui-component-assets" }
+# GPUI is published as the pinned `gpui-pre-*` snapshot family that
+# gpui-component 0.8 is built against; the versions must match exactly.
+gpui = { package = "gpui-pre", version = "=0.3.9" }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.9" }
+gpui-component = "0.8.0"
+gpui-kit-assets = "0.8.0"
 
 # Data & Logic
 serde = { version = "1.0.228", features = ["derive"] }
@@ -24,7 +27,7 @@ rfd = "0.17"
 directories = "6.0"
 
 # Printing
-krilla = "0.6"
+krilla = "0.8"
 chrono = "0.4.43"
 
 [target.'cfg(windows)'.dependencies]

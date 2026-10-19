@@ -3,6 +3,8 @@ use gpui_component::{
     Sizable as _, Theme, input::{
         Copy as CopyAction,
         Cut as CutAction,
+        Editor,
+        EditorState,
         Input,
         InputEvent,
         InputState,
@@ -33,7 +35,7 @@ actions!(editor, [UndoAction, RedoAction, NormalizePasteAction]);
 /// Main text editor component with multi-line input, undo/redo, and status bar.
 pub struct TextEditor {
     /// The underlying input state entity.
-    pub(crate) input_state: Entity<InputState>,
+    pub(crate) input_state: Entity<EditorState>,
     /// Path to the currently open file, if any.
     pub(crate) current_file: Option<PathBuf>,
     encoding: Encoding,
@@ -49,8 +51,14 @@ pub struct TextEditor {
     ignore_input_events: bool,
     /// Whether the status bar is visible.
     pub(crate) show_status_bar: bool,
+    /// Whether the line-number gutter is visible.
+    pub(crate) show_line_numbers: bool,
     /// Editor font size in pixels.
     pub(crate) font_size: f32,
+    /// Editor font family name.
+    pub(crate) font_family: SharedString,
+    /// Line height as a multiple of the font size.
+    pub(crate) line_height: f32,
     /// Input state for the go-to-line bar, when open.
     goto_line_input: Option<Entity<InputState>>,
     goto_line_subscription: Option<Subscription>,
@@ -61,10 +69,13 @@ pub struct TextEditor {
 
 impl TextEditor {
     pub fn new(window: &mut Window, cx: &mut Context<Self>, initial_text: String) -> Self {
-        // Create InputState with multi-line support
+        // Code-editor state in plain-text mode: no highlighting or folding,
+        // but a line-number gutter, soft wrap and the search/replace panel.
         let input_state = cx.new(|cx| {
-            InputState::new(window, cx)
-                .multi_line(true)
+            EditorState::new(window, cx)
+                .language("plaintext")
+                .folding(false)
+                .line_number(true)
                 .searchable(true)
                 .soft_wrap(true)
         });
@@ -104,7 +115,10 @@ impl TextEditor {
             is_dirty: false,
             ignore_input_events: false,
             show_status_bar: true,
+            show_line_numbers: true,
             font_size: 14.0,
+            font_family: "Arial".into(),
+            line_height: 1.5,
             goto_line_input: None,
             goto_line_subscription: None,
             fps_tracker: FpsTracker::new(),
@@ -248,7 +262,7 @@ impl TextEditor {
     /// Open the go-to-line bar (Ctrl+G).
     pub fn open_goto_line(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let input = cx.new(|cx| InputState::new(window, cx));
-        input.read(cx).focus_handle(cx).focus(window);
+        input.read(cx).focus_handle(cx).focus(window, cx);
         self.goto_line_subscription = Some(cx.subscribe_in(&input, window, {
             move |this: &mut Self, input, ev: &InputEvent, window, cx| {
                 if let InputEvent::PressEnter { .. } = ev {
@@ -270,14 +284,14 @@ impl TextEditor {
     fn close_goto_line(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.goto_line_input = None;
         self.goto_line_subscription = None;
-        self.focus_handle(cx).focus(window);
+        self.focus_handle(cx).focus(window, cx);
         cx.notify();
     }
 
     /// Focus input and dispatch action.
     fn dispatch_to_input(&self, action: &dyn Action, window: &mut Window, cx: &mut Context<Self>) {
         let focus = self.focus_handle(cx);
-        focus.focus(window);
+        focus.focus(window, cx);
         focus.dispatch_action(action, window, cx);
     }
 
@@ -291,6 +305,15 @@ impl TextEditor {
 
     pub fn toggle_status_bar(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         self.show_status_bar = !self.show_status_bar;
+        cx.notify();
+    }
+
+    /// Show or hide the line-number gutter.
+    pub fn set_line_numbers(&mut self, show: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.show_line_numbers = show;
+        self.input_state.update(cx, |state, cx| {
+            state.set_line_number(show, window, cx);
+        });
         cx.notify();
     }
 
@@ -464,20 +487,17 @@ impl Render for TextEditor {
         let cursor = self.input_state.read(cx).cursor_position();
         let line = cursor.line.saturating_add(1);
         let column = cursor.character.saturating_add(1);
-        let char_count = self.input_state.read(cx).value().chars().count();
+        // Character counts straight from the rope: total length and the
+        // active selection (byte offsets converted to char offsets).
+        let (char_count, selection_len) = {
+            let state = self.input_state.read(cx);
+            let text = state.text();
+            let range = state.selected_range();
+            let start = range.start.min(range.end).min(text.len());
+            let end = range.start.max(range.end).min(text.len());
+            (text.len_chars(), text.byte_to_char_idx(end) - text.byte_to_char_idx(start))
+        };
         let char_count_display = Self::format_with_commas(char_count);
-        let selected_text_range = self.input_state.update(cx, |state, cx| {
-            state.selected_text_range(true, window, cx)
-        });
-
-        // Calculate selection length from UTF-16 indices
-        let selection_len = selected_text_range.as_ref()
-            .map(|selection| {
-                let start = selection.range.start.min(selection.range.end);
-                let end = selection.range.start.max(selection.range.end);
-                end - start
-            })
-            .unwrap_or(0);
 
         // Show selection count if text is selected, otherwise show total char count
         let count_display = if selection_len > 0 {
@@ -521,17 +541,24 @@ impl Render for TextEditor {
             .child(
                 // Main editor area
                 div()
-                    .flex_grow()
-                    .p_2()
-                // .text_color(gpui::black())  // Set text color to black
+                    .flex_grow(1.0)
+                    // The input adds its own inner padding (2px / 8px at the
+                    // small size), so the wrapper only nudges the text off the
+                    // menu bar; no bottom padding, the text runs to the status bar.
+                    .pt_1()
                 .child(
-                    Input::new(&self.input_state)
-                        // No borders
+                    Editor::new(&self.input_state)
+                        // No input chrome: the workspace supplies the background,
+                        // so skip the component's own fill, radius and border.
+                        .appearance(false)
                         .bordered(false)
-                            .text_size(px(self.font_size))
-                            .text_color(colors.accent_foreground)
-                            .border_color(colors.border)
-                            .h_full()
+                        .small()
+                        .h(relative(1.0))
+                        .text_size(px(self.font_size))
+                        // Plain text: the chosen family, not the code editor's monospace default.
+                        .font_family(self.font_family.clone())
+                        .line_height(relative(self.line_height))
+                        .text_color(colors.accent_foreground)
                     )
             )
             .children(if show_status_bar {

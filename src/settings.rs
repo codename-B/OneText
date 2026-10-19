@@ -12,6 +12,9 @@ pub struct AppSettings {
     pub font_family: String,
     /// Font size in pixels.
     pub font_size: f32,
+    /// Line height as a multiple of the font size.
+    #[serde(default = "default_line_height")]
+    pub line_height: f32,
 
     /// Name of the active theme.
     #[serde(default = "default_theme")]
@@ -32,6 +35,10 @@ pub struct AppSettings {
     /// Last opened file (for restore on startup).
     #[serde(default)]
     pub last_file: Option<PathBuf>,
+
+    /// Whether the editor shows a line-number gutter.
+    #[serde(default = "default_true")]
+    pub show_line_numbers: bool,
 }
 
 /// Maximum number of entries kept in the recent files list.
@@ -50,6 +57,8 @@ impl AppSettings {
 
 fn default_true() -> bool { true }
 
+fn default_line_height() -> f32 { 1.5 }
+
 fn default_theme() -> String {
     "Default Light".to_string()
 }
@@ -59,11 +68,13 @@ impl Default for AppSettings {
         Self {
             font_family: "Arial".to_string(),
             font_size: 14.0,
+            line_height: default_line_height(),
             theme: default_theme(),
             enable_unsaved_changes_protection: true,
             recent_files: Vec::new(),
             restore_last_file: false,
             last_file: None,
+            show_line_numbers: true,
         }
     }
 }

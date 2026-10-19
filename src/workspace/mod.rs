@@ -14,7 +14,7 @@ use gpui_component::{Theme, ThemeRegistry};
 use gpui_component::TitleBar;
 use std::path::PathBuf;
 
-use crate::{DecreaseFontSizeAction, ExitAppAction, FindAction, GoToLineAction, IncreaseFontSizeAction, InsertDateTimeAction, NewFileAction, OpenFileDialogAction, ReplaceAction, ResetFontSizeAction, SaveFileAction, SaveFileAsAction};
+use crate::{DecreaseFontSizeAction, ExitAppAction, FindAction, GoToLineAction, IncreaseFontSizeAction, InsertDateTimeAction, NewFileAction, OpenFileDialogAction, ReplaceAction, ResetFontSizeAction, SaveFileAction, SaveFileAsAction, ToggleLineNumbersAction};
 use tracing::debug;
 use crate::editor::TextEditor;
 use crate::settings::AppSettings;
@@ -24,6 +24,9 @@ const MIN_FONT_SIZE: f32 = 8.0;
 const MAX_FONT_SIZE: f32 = 72.0;
 const FONT_SIZE_STEP: f32 = 1.0;
 const DEFAULT_FONT_SIZE: f32 = 14.0;
+
+/// Line height choices offered in the View menu (multiples of font size).
+pub(crate) const LINE_HEIGHTS: [f32; 7] = [1.0, 1.2, 1.4, 1.5, 1.6, 1.8, 2.0];
 
 /// Main workspace - holds the editor and current file state.
 pub struct Workspace {
@@ -45,7 +48,16 @@ impl Workspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>, settings: AppSettings) -> Self {
         let editor = cx.new(|cx| TextEditor::new(window, cx, "".into()));
         let font_size = settings.font_size.clamp(MIN_FONT_SIZE, MAX_FONT_SIZE);
-        editor.update(cx, |ed, _cx| ed.font_size = font_size);
+        let font_family: SharedString = settings.font_family.clone().into();
+        let line_height = settings.line_height.clamp(LINE_HEIGHTS[0], LINE_HEIGHTS[LINE_HEIGHTS.len() - 1]);
+        let show_line_numbers = settings.show_line_numbers;
+        editor.update(cx, |ed, cx| {
+            ed.font_size = font_size;
+            ed.font_family = font_family.clone();
+            ed.line_height = line_height;
+            ed.set_line_numbers(show_line_numbers, window, cx);
+        });
+        Self::apply_ui_font(font_family, cx);
 
         Self::spawn_disk_watcher(window, cx);
 
@@ -179,6 +191,15 @@ impl Workspace {
         cx.notify();
     }
 
+    /// Flip the line-number gutter, persist the preference and apply it to the editor.
+    pub(crate) fn toggle_line_numbers(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.settings.show_line_numbers = !self.settings.show_line_numbers;
+        self.settings.save();
+        let show = self.settings.show_line_numbers;
+        self.with_editor(cx, |ed, cx| ed.set_line_numbers(show, window, cx));
+        cx.notify();
+    }
+
     pub(crate) fn clear_recent_files(&mut self, cx: &mut Context<Self>) {
         self.settings.recent_files.clear();
         self.settings.save();
@@ -265,6 +286,46 @@ impl Workspace {
         cx.notify();
     }
 
+    /// Set the font family for the editor and the rest of the window, and save it.
+    pub(crate) fn set_font_family(&mut self, family: String, cx: &mut Context<Self>) {
+        if family == self.settings.font_family {
+            return;
+        }
+        self.settings.font_family = family.clone();
+        AppSettings::save(&self.settings);
+        let family: SharedString = family.into();
+        self.with_editor(cx, |ed, cx| {
+            ed.font_family = family.clone();
+            cx.notify();
+        });
+        Self::apply_ui_font(family, cx);
+        cx.notify();
+    }
+
+    /// Make the whole window (menus, title bar, status bar, popups) use the
+    /// chosen family. The component theme's font is what the root applies,
+    /// and Theme::update refreshes every window.
+    fn apply_ui_font(family: SharedString, cx: &mut App) {
+        if Theme::global(cx).font_family != family {
+            Theme::update(cx, |t| t.font_family = family);
+        }
+    }
+
+    /// Set editor line height (multiple of font size) and save preference.
+    pub(crate) fn set_line_height(&mut self, line_height: f32, cx: &mut Context<Self>) {
+        let line_height = line_height.clamp(LINE_HEIGHTS[0], LINE_HEIGHTS[LINE_HEIGHTS.len() - 1]);
+        if (line_height - self.settings.line_height).abs() < f32::EPSILON {
+            return;
+        }
+        self.settings.line_height = line_height;
+        AppSettings::save(&self.settings);
+        self.with_editor(cx, |ed, cx| {
+            ed.line_height = line_height;
+            cx.notify();
+        });
+        cx.notify();
+    }
+
     pub(crate) fn increase_font_size(&mut self, cx: &mut Context<Self>) {
         self.set_font_size(self.settings.font_size + FONT_SIZE_STEP, cx);
     }
@@ -281,7 +342,15 @@ impl Workspace {
     pub(crate) fn apply_theme(&mut self, theme_name: String, cx: &mut Context<Self>) {
         let name = SharedString::from(theme_name);
         if let Some(theme) = ThemeRegistry::global(cx).themes().get(&name).cloned() {
-            Theme::global_mut(cx).apply_config(&theme);
+            // Theme::update re-projects the colors onto the base layer that
+            // paints the scrollbar and refreshes every window; writing through
+            // global_mut would leave the scrollbar on the old palette.
+            // Re-apply the chosen font after the theme file installs its own.
+            let family: SharedString = self.settings.font_family.clone().into();
+            Theme::update(cx, |t| {
+                t.apply_config(&theme);
+                t.font_family = family;
+            });
             self.settings.theme = name.to_string();
             AppSettings::save(&self.settings);
         }
@@ -324,6 +393,7 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &IncreaseFontSizeAction, _window, cx| this.increase_font_size(cx)))
             .on_action(cx.listener(|this, _: &DecreaseFontSizeAction, _window, cx| this.decrease_font_size(cx)))
             .on_action(cx.listener(|this, _: &ResetFontSizeAction, _window, cx| this.reset_font_size(cx)))
+            .on_action(cx.listener(|this, _: &ToggleLineNumbersAction, window, cx| this.toggle_line_numbers(window, cx)))
             .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, window, cx| {
                 if event.modifiers.control {
                     let dy = event.delta.pixel_delta(window.line_height()).y;
