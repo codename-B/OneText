@@ -542,17 +542,18 @@ impl Render for TextEditor {
                 // Main editor area
                 div()
                     .flex_grow(1.0)
-                    // The input adds its own inner padding (2px / 8px at the
-                    // small size), so the wrapper only nudges the text off the
-                    // menu bar; no bottom padding, the text runs to the status bar.
-                    .pt_1()
+                    // xsmall sizing gives the editor no vertical padding of its
+                    // own and 4px horizontal; the wrapper adds 4px on the left so
+                    // the text sits 8px in, and nothing above or below, so the
+                    // first line hugs the menu bar and the last hugs the status bar.
+                    .pl_1()
                 .child(
                     Editor::new(&self.input_state)
                         // No input chrome: the workspace supplies the background,
                         // so skip the component's own fill, radius and border.
                         .appearance(false)
                         .bordered(false)
-                        .small()
+                        .xsmall()
                         .h(relative(1.0))
                         .text_size(px(self.font_size))
                         // Plain text: the chosen family, not the code editor's monospace default.

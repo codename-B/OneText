@@ -1998,8 +1998,6 @@ dependencies = [
 [[package]]
 name = "gpui-component"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4097e161cc81e86323b439664be0cdd4f7c56148e867ed6f67fd72b966b6c2d1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4229,7 +4227,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "onetext"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "chrono",

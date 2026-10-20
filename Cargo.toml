@@ -1,6 +1,6 @@
 [package]
 name = "onetext"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 [dependencies]
@@ -50,3 +50,7 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
+
+[patch.crates-io]
+# See patches/README.md: search panel re-selected its query on every keystroke.
+gpui-component = { path = "patches/gpui-component" }

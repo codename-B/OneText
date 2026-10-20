@@ -45,7 +45,7 @@ actions!(global, [
 
 #[derive(Parser, Debug)]
 #[command(name = "OneText")]
-#[command(version = "0.2.0")]
+#[command(version = "0.2.1")]
 #[command(about = "A text editor", long_about = None)]
 struct Cli {
     /// Optional file to open on startup

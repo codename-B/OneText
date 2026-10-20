@@ -1,14 +1,14 @@
 # OneText
 
 ![License](https://img.shields.io/badge/license-GPLv2-blue.svg)
-![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.2.1-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 
 **OneText** is a minimal text editor built in Rust. It focuses on single-file editing without the distraction of tabs, using `gpui` for high performance.
 
 ![alt text](preview.png "OneText Preview")
 
-## ✨ Features
+## Features
 
 | Feature | Description |
 | :--- | :--- |
@@ -16,14 +16,16 @@
 | **Theming** | 20+ themes included (Dracula, Solarized, Catppuccin, etc.). |
 | **Performance** | Built on `gpui` for instant startup and 120fps rendering. |
 | **PDF Export** | Built-in PDF generation. |
+| **Find & Replace** | Search panel with replace mode, plus Go to Line. |
+| **Your Type** | Pick any installed font, size and line height; optional line numbers. |
 
-## 📦 Installation
+## Installation
 
 Download the latest installer from the **[Releases](https://github.com/codename-B/OneText/releases)** page.
 
 The installer (`OneText-Setup-x.x.x.exe`) installs the app to Program Files and creates a Start Menu shortcut.
 
-## 🛠️ Building from Source
+## Building from Source
 
 To build OneText yourself, you'll need [Rust](https://www.rust-lang.org/tools/install) installed.
 
@@ -50,6 +52,6 @@ cargo build --release
 & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' 'installer\onetext.iss'
 ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to open issues or submit pull requests.
